@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	spanIndex                      = "jaeger-span-"
+	spanIndex                      = "logstash-"
 	serviceIndex                   = "jaeger-service-"
 	archiveIndexSuffix             = "archive"
 	archiveReadIndexSuffix         = archiveIndexSuffix + "-read"
@@ -44,11 +44,11 @@ const (
 	indexPrefixSeparator           = "-"
 	indexPrefixSeparatorDeprecated = ":"
 
-	traceIDField           = "traceID"
-	durationField          = "duration"
-	startTimeField         = "startTime"
-	serviceNameField       = "process.serviceName"
-	operationNameField     = "operationName"
+	traceIDField           = "globalId"
+	durationField          = "deltaTime"
+	startTimeField         = "timestamp"
+	serviceNameField       = "service"
+	operationNameField     = "method"
 	objectTagsField        = "tag"
 	objectProcessTagsField = "process.tag"
 	nestedTagsField        = "tags"
@@ -313,7 +313,7 @@ func (s *SpanReader) multiRead(ctx context.Context, traceIDs []model.TraceID, st
 		}
 
 		for i, traceID := range traceIDs {
-			query := elastic.NewTermQuery("traceID", traceID.String())
+			query := elastic.NewTermQuery(traceIDField, traceID.String())
 			if val, ok := searchAfterTime[traceID]; ok {
 				nextTime = val
 			}
@@ -325,7 +325,7 @@ func (s *SpanReader) multiRead(ctx context.Context, traceIDs []model.TraceID, st
 						Query(query).
 						Size(defaultDocCount).
 						TerminateAfter(s.maxNumSpans).
-						Sort("startTime", true).
+						Sort(startTimeField, true).
 						SearchAfter(nextTime))
 		}
 		// set traceIDs to empty

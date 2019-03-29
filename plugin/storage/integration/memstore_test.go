@@ -22,6 +22,7 @@ import (
 
 	"github.com/jaegertracing/jaeger/pkg/testutils"
 	"github.com/jaegertracing/jaeger/plugin/storage/memory"
+	"os"
 )
 
 type MemStorageIntegrationTestSuite struct {
@@ -52,6 +53,9 @@ func (s *MemStorageIntegrationTestSuite) cleanUp() error {
 }
 
 func TestMemoryStorage(t *testing.T) {
+	if os.Getenv("STORAGE") != "memstore" {
+		t.Skip("Integration test against Memstore skipped; set STORAGE env var to memstore to run this")
+	}
 	s := &MemStorageIntegrationTestSuite{}
 	require.NoError(t, s.initialize())
 	s.IntegrationTestAll(t)

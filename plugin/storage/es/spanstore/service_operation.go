@@ -69,16 +69,18 @@ func NewServiceOperationStorage(
 // Write saves a service to operation pair.
 func (s *ServiceOperationStorage) Write(indexName string, jsonSpan *dbmodel.Span) {
 	// Insert serviceName:operationName document
-	service := dbmodel.Service{
-		ServiceName:   jsonSpan.Process.ServiceName,
-		OperationName: jsonSpan.OperationName,
-	}
+	/*
+		service := dbmodel.Service{
+			ServiceName:   jsonSpan.Process.ServiceName,
+			OperationName: jsonSpan.OperationName,
+		}
 
-	cacheKey := hashCode(service)
-	if !keyInCache(cacheKey, s.serviceCache) {
-		s.client.Index().Index(indexName).Type(serviceType).Id(cacheKey).BodyJson(service).Add()
-		writeCache(cacheKey, s.serviceCache)
-	}
+		cacheKey := hashCode(service)
+		if !keyInCache(cacheKey, s.serviceCache) {
+			s.client.Index().Index(indexName).Type(serviceType).Id(cacheKey).BodyJson(service).Add()
+			writeCache(cacheKey, s.serviceCache)
+		}
+	*/
 }
 
 func (s *ServiceOperationStorage) getServices(indices []string) ([]string, error) {

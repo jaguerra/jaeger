@@ -142,32 +142,32 @@ func TestSpanReaderIndices(t *testing.T) {
 	logger, _ := testutils.NewLogger()
 	metricsFactory := metricstest.NewFactory(0)
 	date := time.Now()
-	dateFormat := date.UTC().Format("2006-01-02")
+	dateFormat := date.UTC().Format("2006.01.02")
 	testCases := []struct {
 		indices []string
 		params  SpanReaderParams
 	}{
-		{params:SpanReaderParams{Client:client, Logger: logger, MetricsFactory: metricsFactory,
-			IndexPrefix:"", Archive: false},
-			indices: []string{spanIndex+dateFormat}},
-		{params:SpanReaderParams{Client:client, Logger: logger, MetricsFactory: metricsFactory,
-			IndexPrefix:"", UseReadWriteAliases: true},
-			indices: []string{spanIndex+"read"}},
-		{params:SpanReaderParams{Client:client, Logger: logger, MetricsFactory: metricsFactory,
-			IndexPrefix:"foo:", Archive: false},
-			indices: []string{"foo:"+indexPrefixSeparator+spanIndex+dateFormat,"foo:"+indexPrefixSeparatorDeprecated+spanIndex+dateFormat}},
-		{params:SpanReaderParams{Client:client, Logger: logger, MetricsFactory: metricsFactory,
-			IndexPrefix:"foo:", UseReadWriteAliases: true},
-			indices: []string{"foo:-"+spanIndex+"read", "foo::"+spanIndex+"read"}},
-		{params:SpanReaderParams{Client:client, Logger: logger, MetricsFactory: metricsFactory,
-			IndexPrefix:"", Archive: true},
-			indices: []string{spanIndex+archiveIndexSuffix}},
-		{params:SpanReaderParams{Client:client, Logger: logger, MetricsFactory: metricsFactory,
-			IndexPrefix:"foo:", Archive: true},
-			indices: []string{"foo:"+indexPrefixSeparator+spanIndex+archiveIndexSuffix}},
-		{params:SpanReaderParams{Client:client, Logger: logger, MetricsFactory: metricsFactory,
-			IndexPrefix:"foo:", Archive: true, UseReadWriteAliases:true},
-			indices: []string{"foo:"+indexPrefixSeparator+spanIndex+archiveReadIndexSuffix}},
+		{params: SpanReaderParams{Client: client, Logger: logger, MetricsFactory: metricsFactory,
+			IndexPrefix: "", Archive: false},
+			indices: []string{spanIndex + dateFormat}},
+		{params: SpanReaderParams{Client: client, Logger: logger, MetricsFactory: metricsFactory,
+			IndexPrefix: "", UseReadWriteAliases: true},
+			indices: []string{spanIndex + "read"}},
+		{params: SpanReaderParams{Client: client, Logger: logger, MetricsFactory: metricsFactory,
+			IndexPrefix: "foo:", Archive: false},
+			indices: []string{"foo:" + indexPrefixSeparator + spanIndex + dateFormat, "foo:" + indexPrefixSeparatorDeprecated + spanIndex + dateFormat}},
+		{params: SpanReaderParams{Client: client, Logger: logger, MetricsFactory: metricsFactory,
+			IndexPrefix: "foo:", UseReadWriteAliases: true},
+			indices: []string{"foo:-" + spanIndex + "read", "foo::" + spanIndex + "read"}},
+		{params: SpanReaderParams{Client: client, Logger: logger, MetricsFactory: metricsFactory,
+			IndexPrefix: "", Archive: true},
+			indices: []string{spanIndex + archiveIndexSuffix}},
+		{params: SpanReaderParams{Client: client, Logger: logger, MetricsFactory: metricsFactory,
+			IndexPrefix: "foo:", Archive: true},
+			indices: []string{"foo:" + indexPrefixSeparator + spanIndex + archiveIndexSuffix}},
+		{params: SpanReaderParams{Client: client, Logger: logger, MetricsFactory: metricsFactory,
+			IndexPrefix: "foo:", Archive: true, UseReadWriteAliases: true},
+			indices: []string{"foo:" + indexPrefixSeparator + spanIndex + archiveReadIndexSuffix}},
 	}
 	for _, testCase := range testCases {
 		r := NewSpanReader(testCase.params)
@@ -392,7 +392,7 @@ func TestSpanReaderFindIndices(t *testing.T) {
 func TestSpanReader_indexWithDate(t *testing.T) {
 	withSpanReader(func(r *spanReaderTest) {
 		actual := indexWithDate(spanIndex, time.Date(1995, time.April, 21, 4, 21, 19, 95, time.UTC))
-		assert.Equal(t, "jaeger-span-1995-04-21", actual)
+		assert.Equal(t, "logstash-1995.04.21", actual)
 	})
 }
 
@@ -791,14 +791,14 @@ func TestTraceQueryParameterValidation(t *testing.T) {
 
 func TestSpanReader_buildTraceIDAggregation(t *testing.T) {
 	expectedStr := `{ "terms":{
-            "field":"traceID",
+            "field":"globalId",
             "size":123,
             "order":{
-               "startTime":"desc"
+               "timestamp":"desc"
             }
          },
          "aggregations": {
-            "startTime" : { "max": {"field": "startTime"}}
+            "timestamp" : { "max": {"field": "timestamp"}}
          }}`
 	withSpanReader(func(r *spanReaderTest) {
 		traceIDAggregation := r.reader.buildTraceIDAggregation(123)
@@ -808,7 +808,7 @@ func TestSpanReader_buildTraceIDAggregation(t *testing.T) {
 		expected := make(map[string]interface{})
 		json.Unmarshal([]byte(expectedStr), &expected)
 		expected["terms"].(map[string]interface{})["size"] = 123
-		expected["terms"].(map[string]interface{})["order"] = []interface{}{map[string]string{"startTime": "desc"}}
+		expected["terms"].(map[string]interface{})["order"] = []interface{}{map[string]string{"timestamp": "desc"}}
 		assert.EqualValues(t, expected, actual)
 	})
 }
@@ -847,7 +847,7 @@ func TestSpanReader_buildFindTraceIDsQuery(t *testing.T) {
 func TestSpanReader_buildDurationQuery(t *testing.T) {
 	expectedStr :=
 		`{ "range":
-			{ "duration": { "include_lower": true,
+			{ "deltaTime": { "include_lower": true,
 				        "include_upper": true,
 				        "from": 1000000,
 				        "to": 2000000 }
@@ -863,8 +863,8 @@ func TestSpanReader_buildDurationQuery(t *testing.T) {
 		expected := make(map[string]interface{})
 		json.Unmarshal([]byte(expectedStr), &expected)
 		// We need to do this because we cannot process a json into uint64.
-		expected["range"].(map[string]interface{})["duration"].(map[string]interface{})["from"] = model.DurationAsMicroseconds(durationMin)
-		expected["range"].(map[string]interface{})["duration"].(map[string]interface{})["to"] = model.DurationAsMicroseconds(durationMax)
+		expected["range"].(map[string]interface{})["deltaTime"].(map[string]interface{})["from"] = model.DurationAsMicroseconds(durationMin)
+		expected["range"].(map[string]interface{})["deltaTime"].(map[string]interface{})["to"] = model.DurationAsMicroseconds(durationMax)
 
 		assert.EqualValues(t, expected, actual)
 	})
@@ -873,7 +873,7 @@ func TestSpanReader_buildDurationQuery(t *testing.T) {
 func TestSpanReader_buildStartTimeQuery(t *testing.T) {
 	expectedStr :=
 		`{ "range":
-			{ "startTime": { "include_lower": true,
+			{ "timestamp": { "include_lower": true,
 				         "include_upper": true,
 				         "from": 1000000,
 				         "to": 2000000 }
@@ -889,15 +889,15 @@ func TestSpanReader_buildStartTimeQuery(t *testing.T) {
 		expected := make(map[string]interface{})
 		json.Unmarshal([]byte(expectedStr), &expected)
 		// We need to do this because we cannot process a json into uint64.
-		expected["range"].(map[string]interface{})["startTime"].(map[string]interface{})["from"] = model.TimeAsEpochMicroseconds(startTimeMin)
-		expected["range"].(map[string]interface{})["startTime"].(map[string]interface{})["to"] = model.TimeAsEpochMicroseconds(startTimeMax)
+		expected["range"].(map[string]interface{})["timestamp"].(map[string]interface{})["from"] = model.TimeAsEpochMicroseconds(startTimeMin)
+		expected["range"].(map[string]interface{})["timestamp"].(map[string]interface{})["to"] = model.TimeAsEpochMicroseconds(startTimeMax)
 
 		assert.EqualValues(t, expected, actual)
 	})
 }
 
 func TestSpanReader_buildServiceNameQuery(t *testing.T) {
-	expectedStr := `{ "match": { "process.serviceName": { "query": "bat" }}}`
+	expectedStr := `{ "match": { "service": { "query": "bat" }}}`
 	withSpanReader(func(r *spanReaderTest) {
 		serviceNameQuery := r.reader.buildServiceNameQuery("bat")
 		actual, err := serviceNameQuery.Source()
@@ -911,7 +911,7 @@ func TestSpanReader_buildServiceNameQuery(t *testing.T) {
 }
 
 func TestSpanReader_buildOperationNameQuery(t *testing.T) {
-	expectedStr := `{ "match": { "operationName": { "query": "spook" }}}`
+	expectedStr := `{ "match": { "method": { "query": "spook" }}}`
 	withSpanReader(func(r *spanReaderTest) {
 		operationNameQuery := r.reader.buildOperationNameQuery("spook")
 		actual, err := operationNameQuery.Source()
@@ -968,7 +968,7 @@ func TestSpanReader_ArchiveTraces(t *testing.T) {
 	withArchiveSpanReader(false, func(r *spanReaderTest) {
 		mockSearchService(r).
 			Return(&elastic.SearchResult{}, nil)
-		mockArchiveMultiSearchService(r, "jaeger-span-archive").
+		mockArchiveMultiSearchService(r, "logstash-archive").
 			Return(&elastic.MultiSearchResult{
 				Responses: []*elastic.SearchResult{},
 			}, nil)
@@ -983,7 +983,7 @@ func TestSpanReader_ArchiveTraces_ReadAlias(t *testing.T) {
 	withArchiveSpanReader(true, func(r *spanReaderTest) {
 		mockSearchService(r).
 			Return(&elastic.SearchResult{}, nil)
-		mockArchiveMultiSearchService(r, "jaeger-span-archive-read").
+		mockArchiveMultiSearchService(r, "logstash-archive-read").
 			Return(&elastic.MultiSearchResult{
 				Responses: []*elastic.SearchResult{},
 			}, nil)

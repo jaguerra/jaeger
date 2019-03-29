@@ -28,6 +28,7 @@ import (
 	"github.com/jaegertracing/jaeger/pkg/es"
 	"github.com/jaegertracing/jaeger/plugin/storage/es/spanstore/dbmodel"
 	storageMetrics "github.com/jaegertracing/jaeger/storage/spanstore/metrics"
+	"os"
 )
 
 const (
@@ -129,6 +130,10 @@ func getSpanAndServiceIndexFn(archive, useReadWriteAliases bool, prefix string) 
 
 // WriteSpan writes a span and its corresponding service:operation in ElasticSearch
 func (s *SpanWriter) WriteSpan(span *model.Span) error {
+	_, disabledWrite := os.Lookup("ENABLE_ES_WRITES")
+	if disabledWrite {
+		return nil
+	}
 	spanIndexName, serviceIndexName := s.spanServiceIndex(span.StartTime)
 	jsonSpan := s.spanConverter.FromDomainEmbedProcess(span)
 	if serviceIndexName != "" {
